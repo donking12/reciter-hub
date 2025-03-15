@@ -24,9 +24,19 @@ const Index = () => {
     setIsLoading(true);
     try {
       const data = await fetchReciters(filterParams);
-      setReciters(data.reciters);
       
-      if (data.reciters.length === 0) {
+      // Apply client-side filtering for reciter name if provided
+      let filteredReciters = data.reciters;
+      if (filterParams.reciterName) {
+        const searchName = filterParams.reciterName.toLowerCase();
+        filteredReciters = data.reciters.filter(reciter => 
+          reciter.name.toLowerCase().includes(searchName)
+        );
+      }
+      
+      setReciters(filteredReciters);
+      
+      if (filteredReciters.length === 0) {
         toast({
           title: "لا توجد نتائج",
           description: "لم يتم العثور على قراء بالمعايير المحددة. يرجى تجربة معايير أخرى.",
@@ -35,7 +45,7 @@ const Index = () => {
       } else {
         toast({
           title: "تم تحميل البيانات",
-          description: `تم العثور على ${data.reciters.length} قراء.`,
+          description: `تم العثور على ${filteredReciters.length} قراء.`,
         });
       }
     } catch (error) {
@@ -112,7 +122,7 @@ const Index = () => {
       <footer className="bg-quran-primary text-white py-4">
         <div className="container text-center">
           <p className="text-sm">
-            رسيتر هاب - استمع إلى تلاوات القرآن الكريم من مختلف القراء
+            الأصوات القرآنية - استمع إلى تلاوات القرآن الكريم من مختلف القراء
           </p>
         </div>
       </footer>

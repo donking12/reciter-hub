@@ -10,7 +10,7 @@ const QuranHeader: React.FC = () => {
           <div className="flex items-center gap-3">
             <Mic2 className="h-10 w-10 text-quran-accent" />
             <h1 className="text-4xl md:text-5xl font-bold text-quran-primary">
-              <span className="text-quran-accent">رسيتر</span> هاب
+              الأصوات <span className="text-quran-accent">القرآنية</span>
             </h1>
           </div>
           

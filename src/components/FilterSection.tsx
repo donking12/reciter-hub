@@ -16,14 +16,15 @@ interface FilterSectionProps {
 const FilterSection: React.FC<FilterSectionProps> = ({ onFilterChange, isLoading }) => {
   const [filters, setFilters] = useState<FilterParams>({
     language: "ar",
-    reciter: undefined,
+    reciterName: undefined,
     rewaya: undefined,
     sura: undefined,
   });
 
   const handleChange = (name: keyof FilterParams, value: string) => {
     const newValue = value === "" ? undefined : 
-      name === "language" ? value : parseInt(value);
+      name === "language" ? value : 
+      name === "reciterName" ? value : parseInt(value);
     
     setFilters(prev => ({
       ...prev,
@@ -39,7 +40,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({ onFilterChange, isLoading
   const handleReset = () => {
     setFilters({
       language: "ar",
-      reciter: undefined,
+      reciterName: undefined,
       rewaya: undefined,
       sura: undefined,
     });
@@ -71,13 +72,13 @@ const FilterSection: React.FC<FilterSectionProps> = ({ onFilterChange, isLoading
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="reciter" className="text-quran-dark font-medium">رقم القارئ</Label>
+              <Label htmlFor="reciterName" className="text-quran-dark font-medium">اسم القارئ</Label>
               <Input
-                id="reciter"
-                type="number"
-                placeholder="مثال: 168"
-                value={filters.reciter || ""}
-                onChange={(e) => handleChange("reciter", e.target.value)}
+                id="reciterName"
+                type="text"
+                placeholder="مثال: أبو بكر الشاطري"
+                value={filters.reciterName || ""}
+                onChange={(e) => handleChange("reciterName", e.target.value)}
                 className="border-quran-secondary/30"
               />
             </div>
