@@ -1,16 +1,19 @@
+
 export interface Reciter {
   id: number;
   name: string;
-  rewaya: number;
+  letter?: string;
+  rewaya?: number;
   moshaf: Moshaf[];
 }
 
 export interface Moshaf {
   id: number;
   name: string;
-  format: string;
-  surah_total: number;
+  format?: string;
   server: string;
+  surah_total: number;
+  moshaf_type?: number;
   surah_list: string;
 }
 
@@ -18,6 +21,10 @@ export interface ApiResponse {
   status: boolean;
   code: number;
   message: string;
+  reciters: Reciter[];
+}
+
+export interface RecitersResponse {
   reciters: Reciter[];
 }
 

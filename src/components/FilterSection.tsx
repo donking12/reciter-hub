@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FilterParams, availableLanguages } from "@/types";
 import { Search, Filter, RefreshCw } from "lucide-react";
+import { fetchReciters, getMockReciters } from "@/services/api";
 
 interface FilterSectionProps {
   onFilterChange: (filters: FilterParams) => void;
@@ -16,20 +17,52 @@ interface FilterSectionProps {
 const FilterSection: React.FC<FilterSectionProps> = ({ onFilterChange, isLoading }) => {
   const [filters, setFilters] = useState<FilterParams>({
     language: "ar",
-    reciterName: undefined,
+    reciter: undefined,
     rewaya: undefined,
     sura: undefined,
   });
+  const [reciters, setReciters] = useState<{id: number, name: string}[]>([]);
+  const [loadingReciters, setLoadingReciters] = useState(false);
+
+  useEffect(() => {
+    // Load reciters for dropdown when language changes
+    const loadRecitersList = async () => {
+      setLoadingReciters(true);
+      try {
+        const data = await fetchReciters({ language: filters.language });
+        const recitersList = data.reciters.map(r => ({ id: r.id, name: r.name }));
+        setReciters(recitersList);
+      } catch (error) {
+        console.error("Failed to load reciters for dropdown:", error);
+        // Fallback to mock data if API fails
+        const mockData = getMockReciters();
+        const mockReciters = mockData.reciters.map(r => ({ id: r.id, name: r.name }));
+        setReciters(mockReciters);
+      } finally {
+        setLoadingReciters(false);
+      }
+    };
+
+    loadRecitersList();
+  }, [filters.language]);
 
   const handleChange = (name: keyof FilterParams, value: string) => {
     const newValue = value === "" ? undefined : 
       name === "language" ? value : 
-      name === "reciterName" ? value : parseInt(value);
+      parseInt(value);
     
     setFilters(prev => ({
       ...prev,
       [name]: newValue
     }));
+
+    // Reset reciter when language changes
+    if (name === "language") {
+      setFilters(prev => ({
+        ...prev,
+        reciter: undefined,
+      }));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -40,7 +73,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({ onFilterChange, isLoading
   const handleReset = () => {
     setFilters({
       language: "ar",
-      reciterName: undefined,
+      reciter: undefined,
       rewaya: undefined,
       sura: undefined,
     });
@@ -72,15 +105,28 @@ const FilterSection: React.FC<FilterSectionProps> = ({ onFilterChange, isLoading
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="reciterName" className="text-quran-dark font-medium">اسم القارئ</Label>
-              <Input
-                id="reciterName"
-                type="text"
-                placeholder="مثال: أبو بكر الشاطري"
-                value={filters.reciterName || ""}
-                onChange={(e) => handleChange("reciterName", e.target.value)}
-                className="border-quran-secondary/30"
-              />
+              <Label htmlFor="reciter" className="text-quran-dark font-medium">القارئ</Label>
+              <Select 
+                value={filters.reciter?.toString() || ""} 
+                onValueChange={(value) => handleChange("reciter", value)}
+              >
+                <SelectTrigger id="reciter" className="border-quran-secondary/30">
+                  <SelectValue placeholder="اختر القارئ" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {loadingReciters ? (
+                    <SelectItem value="loading" disabled>جاري تحميل القراء...</SelectItem>
+                  ) : reciters.length > 0 ? (
+                    reciters.map(reciter => (
+                      <SelectItem key={reciter.id} value={reciter.id.toString()}>
+                        {`${reciter.id} - ${reciter.name}`}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="no-data" disabled>لا يوجد قراء متاحين</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

@@ -3,7 +3,7 @@ import { FilterParams, RecitersResponse } from "@/types";
 
 const BASE_URL = "https://mp3quran.net/api/v3";
 
-export const fetchReciters = async (params: FilterParams = {}): Promise<RecitersResponse> => {
+export const fetchReciters = async (params: FilterParams = { language: "ar" }): Promise<RecitersResponse> => {
   try {
     const url = new URL(`${BASE_URL}/reciters`);
     
