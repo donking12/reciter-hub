@@ -1,3 +1,6 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -96,6 +99,17 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-quran-background text-foreground bg-islamic-pattern bg-fixed;
+    font-family: 'Noto Sans Arabic', sans-serif;
+  }
+
+  .arabic-text {
+    font-family: 'Noto Sans Arabic', sans-serif;
+    direction: rtl;
+  }
+  
+  .geometric-pattern {
+    background-color: #ffffff;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M54.627,2.269 C54.627,0.646 56.043,-0.001 57.334,0 L59.942,0 L60,2.358 C60.001,3.644 58.548,5.089 57.262,5.089 L54.627,5.088 L54.627,2.269 Z' fill='%230a9396' fill-opacity='0.09'%3E%3C/path%3E%3C/svg%3E");
   }
 }

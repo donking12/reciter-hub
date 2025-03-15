@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,14 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				quran: {
+					primary: '#005f73',
+					secondary: '#0a9396',
+					gold: '#e9c46a',
+					accent: '#ee9b00',
+					background: '#f8f9fa',
+					dark: '#001219'
 				}
 			},
 			borderRadius: {
@@ -84,11 +93,19 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'pulse-gentle': {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0.7' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-gentle': 'pulse-gentle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+			},
+			backgroundImage: {
+				'islamic-pattern': "url('data:image/svg+xml,%3Csvg width=\"60\" height=\"60\" viewBox=\"0 0 60 60\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cpath d=\"M54.627,2.269 C54.627,0.646 56.043,-0.001 57.334,0 L59.942,0 L60,2.358 C60.001,3.644 58.548,5.089 57.262,5.089 L54.627,5.088 L54.627,2.269 Z\" fill=\"%230a9396\" fill-opacity=\"0.09\"%3E%3C/path%3E%3C/svg%3E')"
 			}
 		}
 	},
