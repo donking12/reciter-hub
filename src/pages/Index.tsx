@@ -6,7 +6,7 @@ import { fetchReciters } from "@/services/api";
 import QuranHeader from "@/components/QuranHeader";
 import FilterSection from "@/components/FilterSection";
 import ReciterCard from "@/components/ReciterCard";
-import { Loader2, BookOpenText } from "lucide-react";
+import { Loader2, BookOpenText, PanelRightOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
@@ -66,12 +66,20 @@ const Index = () => {
               <h2 className="text-2xl font-bold text-quran-dark">
                 استكشف قراء القرآن الكريم
               </h2>
-              <Button asChild className="bg-quran-accent hover:bg-quran-accent/90 text-white">
-                <Link to="/reciters" className="flex items-center gap-2">
-                  <BookOpenText className="h-5 w-5" />
-                  عرض قائمة القراء
-                </Link>
-              </Button>
+              <div className="flex gap-2">
+                <Button asChild className="bg-quran-accent hover:bg-quran-accent/90 text-white">
+                  <Link to="/reciters" className="flex items-center gap-2">
+                    <BookOpenText className="h-5 w-5" />
+                    عرض قائمة القراء
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="border-green-primary text-green-primary hover:bg-green-light/30">
+                  <Link to="/explorer" className="flex items-center gap-2">
+                    <PanelRightOpen className="h-5 w-5" />
+                    المكتشف الجديد
+                  </Link>
+                </Button>
+              </div>
             </div>
             <FilterSection onFilterChange={handleFilterChange} isLoading={isLoading} />
           </section>
