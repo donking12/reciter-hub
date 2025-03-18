@@ -23,6 +23,28 @@ const Index = () => {
   const loadReciters = async (filterParams: FilterParams) => {
     setIsLoading(true);
     try {
+      // Try to get from localStorage first for immediate display
+      try {
+        const cachedData = localStorage.getItem(`reciters_${filterParams.language}`);
+        if (cachedData) {
+          const data = JSON.parse(cachedData);
+          
+          // Apply client-side filtering for reciter name if provided
+          let filteredReciters = data.reciters;
+          if (filterParams.reciterName) {
+            const searchName = filterParams.reciterName.toLowerCase();
+            filteredReciters = data.reciters.filter(reciter => 
+              reciter.name.toLowerCase().includes(searchName)
+            );
+          }
+          
+          setReciters(filteredReciters);
+          console.log("Using cached data while fetching fresh data");
+        }
+      } catch (err) {
+        console.warn("Could not read cached reciters:", err);
+      }
+
       const data = await fetchReciters(filterParams);
       
       // Apply client-side filtering for reciter name if provided
@@ -105,7 +127,7 @@ const Index = () => {
             ) : reciters.length > 0 ? (
               <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {reciters.map((reciter) => (
-                  <ReciterCard key={reciter.id} reciter={reciter} />
+                  <ReciterCard key={reciter.id} reciter={reciter} language="ar" />
                 ))}
               </div>
             ) : (

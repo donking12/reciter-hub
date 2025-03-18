@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,12 +9,14 @@ import AudioPlayer from "./AudioPlayer";
 
 interface ReciterCardProps {
   reciter: Reciter;
+  language?: "ar" | "en";
 }
 
-const ReciterCard: React.FC<ReciterCardProps> = ({ reciter }) => {
+const ReciterCard: React.FC<ReciterCardProps> = ({ reciter, language = "ar" }) => {
   const [selectedMoshaf, setSelectedMoshaf] = useState<Moshaf | null>(null);
   const [selectedSurah, setSelectedSurah] = useState<number | null>(null);
   const [showingPlayer, setShowingPlayer] = useState(false);
+  const [preloadedAudio, setPreloadedAudio] = useState<{[key: string]: boolean}>({});
 
   const handlePlaySurah = (moshaf: Moshaf, surahNumber: number) => {
     setSelectedMoshaf(moshaf);
@@ -31,9 +33,48 @@ const ReciterCard: React.FC<ReciterCardProps> = ({ reciter }) => {
     return `${moshaf.server}${surahNumber.toString().padStart(3, '0')}.mp3`;
   };
 
+  const preloadAudio = (moshaf: Moshaf, surahNumber: number) => {
+    const audioUrl = getAudioUrl(moshaf, surahNumber);
+    const key = `${moshaf.id}-${surahNumber}`;
+    
+    if (preloadedAudio[key]) return;
+    
+    const audio = new Audio();
+    audio.preload = "metadata";
+    audio.src = audioUrl;
+    
+    // Mark this audio as preloaded
+    setPreloadedAudio(prev => ({...prev, [key]: true}));
+  };
+
   const getPaddedSurahNumbers = (surahListStr: string) => {
     return surahListStr.split(',').map(Number);
   };
+
+  // Translations for UI text
+  const translations = {
+    availableSurahs: language === "ar" ? "السور المتاحة:" : "Available Surahs:",
+    availableVersions: language === "ar" ? "إصدار متاح" : "available version",
+    closePlayer: language === "ar" ? "إغلاق المشغل" : "Close player",
+    openPlayer: language === "ar" ? "فتح المشغل" : "Open player",
+    surahs: language === "ar" ? "سورة متاحة" : "surahs available",
+    surahPrefix: language === "ar" ? "سورة" : "Surah",
+  };
+
+  // Preload audio files for the first few surahs when reciter is loaded
+  useEffect(() => {
+    if (!reciter.moshaf || reciter.moshaf.length === 0) return;
+    
+    const moshaf = reciter.moshaf[0];
+    const surahNumbers = getPaddedSurahNumbers(moshaf.surah_list);
+    
+    // Preload first 3 surahs for better user experience (or fewer if not available)
+    const surahsToPreload = surahNumbers.slice(0, Math.min(3, surahNumbers.length));
+    
+    surahsToPreload.forEach(surahNumber => {
+      preloadAudio(moshaf, surahNumber);
+    });
+  }, [reciter]);
 
   return (
     <Card className="bg-white/90 backdrop-blur-sm hover:shadow-lg transition-shadow duration-300 border-quran-gold/20 overflow-hidden">
@@ -57,7 +98,9 @@ const ReciterCard: React.FC<ReciterCardProps> = ({ reciter }) => {
                 <BookOpenCheck className="h-5 w-5 mt-1 text-quran-secondary" />
                 <div>
                   <h4 className="font-medium text-quran-dark">{moshaf.name}</h4>
-                  <p className="text-sm text-gray-500">{moshaf.surah_total} سورة متاحة</p>
+                  <p className="text-sm text-gray-500">
+                    {moshaf.surah_total} {translations.surahs}
+                  </p>
                 </div>
               </div>
               <Badge variant="outline" className="bg-quran-secondary/10 text-quran-secondary border-quran-secondary/20">
@@ -70,13 +113,14 @@ const ReciterCard: React.FC<ReciterCardProps> = ({ reciter }) => {
                 <AudioPlayer 
                   audioUrl={getAudioUrl(moshaf, selectedSurah)}
                   reciterName={reciter.name}
-                  surahName={`سورة ${selectedSurah}`}
+                  surahName={`${translations.surahPrefix} ${selectedSurah}`}
+                  language={language}
                 />
               </div>
             )}
             
             <div className="mt-3">
-              <h5 className="text-sm font-medium text-quran-dark mb-2">السور المتاحة:</h5>
+              <h5 className="text-sm font-medium text-quran-dark mb-2">{translations.availableSurahs}</h5>
               <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
                 {getPaddedSurahNumbers(moshaf.surah_list).map((surahNumber) => (
                   <Button
@@ -85,6 +129,7 @@ const ReciterCard: React.FC<ReciterCardProps> = ({ reciter }) => {
                     size="sm"
                     className="text-xs h-7 bg-quran-gold/5 hover:bg-quran-gold/20 border-quran-gold/20 text-quran-dark"
                     onClick={() => handlePlaySurah(moshaf, surahNumber)}
+                    onMouseOver={() => preloadAudio(moshaf, surahNumber)}
                   >
                     {surahNumber}
                   </Button>
@@ -100,7 +145,7 @@ const ReciterCard: React.FC<ReciterCardProps> = ({ reciter }) => {
           <div className="flex items-center gap-2">
             <FileAudio className="h-4 w-4 text-quran-accent" />
             <span className="text-sm text-quran-dark">
-              {reciter.moshaf.length} إصدار متاح
+              {reciter.moshaf.length} {translations.availableVersions}
             </span>
           </div>
           
@@ -111,7 +156,7 @@ const ReciterCard: React.FC<ReciterCardProps> = ({ reciter }) => {
               className="text-quran-primary p-0"
               onClick={closePlayer}
             >
-              {showingPlayer ? "إغلاق المشغل" : "فتح المشغل"}
+              {showingPlayer ? translations.closePlayer : translations.openPlayer}
             </Button>
           )}
         </div>

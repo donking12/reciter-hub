@@ -29,6 +29,8 @@ const ReciterExplorer = () => {
     name: string;
     action: "listen" | "download";
   } | null>(null);
+  const [loadingState, setLoadingState] = useState<{[key: string]: boolean}>({});
+  const [preloadedAudios, setPreloadedAudios] = useState<{[key: string]: boolean}>({});
 
   useEffect(() => {
     loadReciters({ language });
@@ -40,9 +42,28 @@ const ReciterExplorer = () => {
     }
   }, [searchTerm, reciters]);
 
+  useEffect(() => {
+    document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
+    document.documentElement.lang = language;
+  }, [language]);
+
   const loadReciters = async (params: FilterParams) => {
     setIsLoading(true);
     try {
+      // Try to get from localStorage first for immediate display
+      try {
+        const cachedData = localStorage.getItem(`reciters_${params.language}`);
+        if (cachedData) {
+          const data = JSON.parse(cachedData);
+          setReciters(data.reciters);
+          setFilteredReciters(data.reciters);
+          console.log("Using cached data while fetching fresh data");
+        }
+      } catch (err) {
+        console.warn("Could not read cached reciters:", err);
+      }
+
+      // Fetch fresh data
       const data = await fetchReciters(params);
       setReciters(data.reciters);
       setFilteredReciters(data.reciters);
@@ -56,18 +77,35 @@ const ReciterExplorer = () => {
     } catch (error) {
       console.error("Failed to load reciters:", error);
       
-      // Use mock data as fallback
-      const mockData = getMockReciters();
-      setReciters(mockData.reciters);
-      setFilteredReciters(mockData.reciters);
+      // Try to get from localStorage if not already done
+      let usedCacheData = false;
+      try {
+        const cachedData = localStorage.getItem(`reciters_${params.language}`);
+        if (cachedData && reciters.length === 0) {
+          const data = JSON.parse(cachedData);
+          setReciters(data.reciters);
+          setFilteredReciters(data.reciters);
+          usedCacheData = true;
+          console.log("Using cached data after fetch failure");
+        }
+      } catch (err) {
+        console.warn("Could not read cached reciters:", err);
+      }
       
-      toast({
-        title: language === "ar" ? "خطأ في التحميل" : "Error loading data",
-        description: language === "ar"
-          ? "تم استخدام البيانات المحلية كبديل"
-          : "Using local data as fallback",
-        variant: "destructive",
-      });
+      // If no cached data, use mock data
+      if (!usedCacheData && reciters.length === 0) {
+        const mockData = getMockReciters();
+        setReciters(mockData.reciters);
+        setFilteredReciters(mockData.reciters);
+        
+        toast({
+          title: language === "ar" ? "خطأ في التحميل" : "Error loading data",
+          description: language === "ar"
+            ? "تم استخدام البيانات المحلية كبديل"
+            : "Using local data as fallback",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -97,6 +135,28 @@ const ReciterExplorer = () => {
   const openSurahSelector = (server: string, name: string, action: "listen" | "download") => {
     setSelectedReciter({ server, name, action });
     setShowModal(true);
+    
+    // Preload the first few surahs
+    if (action === "listen") {
+      preloadSurahs(server, [1, 2, 3, 4, 5]);
+    }
+  };
+
+  const preloadSurahs = (server: string, surahNumbers: number[]) => {
+    surahNumbers.forEach(num => {
+      const paddedNumber = num.toString().padStart(3, '0');
+      const audioUrl = `${server}${paddedNumber}.mp3`;
+      const key = `${server}-${paddedNumber}`;
+      
+      if (preloadedAudios[key]) return;
+      
+      const audio = new Audio();
+      audio.preload = "metadata";
+      audio.src = audioUrl;
+      audio.load();
+      
+      setPreloadedAudios(prev => ({...prev, [key]: true}));
+    });
   };
 
   const handleSurahSelect = (surahNumber: number) => {
@@ -106,22 +166,32 @@ const ReciterExplorer = () => {
     const audioUrl = `${selectedReciter.server}${paddedNumber}.mp3`;
     
     if (selectedReciter.action === "listen") {
-      playAudio(audioUrl, `Surah ${surahNumber}`, selectedReciter.name);
+      playAudio(audioUrl, surahNumber, selectedReciter.name);
     } else {
-      downloadAudio(audioUrl, `${selectedReciter.name} - Surah ${surahNumber}.mp3`);
+      downloadAudio(audioUrl, `${selectedReciter.name} - ${language === "ar" ? "سورة" : "Surah"} ${surahNumber}.mp3`);
     }
     
     setShowModal(false);
   };
 
-  const playAudio = (url: string, surahName: string, reciterName: string) => {
+  const playAudio = (url: string, surahNumber: number, reciterName: string) => {
+    setLoadingState(prev => ({...prev, [url]: true}));
+    
+    const surahName = language === "ar" ? `سورة ${surahNumber}` : `Surah ${surahNumber}`;
+    
     setCurrentAudio({ url, surahName, reciterName });
     setShowPlayer(true);
     
     if (audioRef.current) {
       audioRef.current.src = url;
+      audioRef.current.oncanplay = () => {
+        setLoadingState(prev => ({...prev, [url]: false}));
+      };
+      
       audioRef.current.play().catch(err => {
         console.error("Error playing audio:", err);
+        setLoadingState(prev => ({...prev, [url]: false}));
+        
         toast({
           title: language === "ar" ? "خطأ في تشغيل الصوت" : "Error playing audio",
           description: language === "ar"
@@ -150,21 +220,54 @@ const ReciterExplorer = () => {
     setShowPlayer(false);
   };
 
-  // List of surahs
-  const surahs = [
-    "Al-Fatihah", "Al-Baqarah", "Al-Imran", "An-Nisa", "Al-Ma'idah", "Al-An'am", "Al-A'raf", "Al-Anfal", "At-Tawbah", "Yunus",
-    "Hud", "Yusuf", "Ar-Ra'd", "Ibrahim", "Al-Hijr", "An-Nahl", "Al-Isra", "Al-Kahf", "Maryam", "Ta-Ha",
-    "Al-Anbiya", "Al-Hajj", "Al-Mu'minun", "An-Nur", "Al-Furqan", "Ash-Shu'ara", "An-Naml", "Al-Qasas", "Al-Ankabut", "Ar-Rum",
-    "Luqman", "As-Sajdah", "Al-Ahzab", "Saba", "Fatir", "Ya-Sin", "As-Saffat", "Sad", "Az-Zumar", "Ghafir",
-    "Fussilat", "Ash-Shura", "Az-Zukhruf", "Ad-Dukhan", "Al-Jathiyah", "Al-Ahqaf", "Muhammad", "Al-Fath", "Al-Hujurat", "Qaf",
-    "Adh-Dhariyat", "At-Tur", "An-Najm", "Al-Qamar", "Ar-Rahman", "Al-Waqi'ah", "Al-Hadid", "Al-Mujadilah", "Al-Hashr", "Al-Mumtahinah",
-    "As-Saff", "Al-Jumu'ah", "Al-Munafiqun", "At-Taghabun", "At-Talaq", "At-Tahrim", "Al-Mulk", "Al-Qalam", "Al-Haqqah", "Al-Ma'arij",
-    "Nuh", "Al-Jinn", "Al-Muzzammil", "Al-Muddathir", "Al-Qiyamah", "Al-Insan", "Al-Mursalat", "An-Naba", "An-Nazi'at", "Abasa",
-    "At-Takwir", "Al-Infitar", "Al-Mutaffifin", "Al-Inshiqaq", "Al-Buruj", "At-Tariq", "Al-A'la", "Al-Ghashiyah", "Al-Fajr", "Al-Balad",
-    "Ash-Shams", "Al-Layl", "Ad-Duha", "Ash-Sharh", "At-Tin", "Al-Alaq", "Al-Qadr", "Al-Bayyinah", "Az-Zalzalah", "Al-Adiyat",
-    "Al-Qari'ah", "At-Takathur", "Al-Asr", "Al-Humazah", "Al-Fil", "Quraysh", "Al-Ma'un", "Al-Kawthar", "Al-Kafirun", "An-Nasr",
-    "Al-Masad", "Al-Ikhlas", "Al-Falaq", "An-Nas"
-  ];
+  // List of surahs with both Arabic and English names
+  const surahs = language === "ar" ? 
+    [
+      "الفاتحة", "البقرة", "آل عمران", "النساء", "المائدة", "الأنعام", "الأعراف", "الأنفال", "التوبة", "يونس",
+      "هود", "يوسف", "الرعد", "إبراهيم", "الحجر", "النحل", "الإسراء", "الكهف", "مريم", "طه",
+      "الأنبياء", "الحج", "المؤمنون", "النور", "الفرقان", "الشعراء", "النمل", "القصص", "العنكبوت", "الروم",
+      "لقمان", "السجدة", "الأحزاب", "سبأ", "فاطر", "يس", "الصافات", "ص", "الزمر", "غافر",
+      "فصلت", "الشورى", "الزخرف", "الدخان", "الجاثية", "الأحقاف", "محمد", "الفتح", "الحجرات", "ق",
+      "الذاريات", "الطور", "النجم", "القمر", "الرحمن", "الواقعة", "الحديد", "المجادلة", "الحشر", "الممتحنة",
+      "الصف", "الجمعة", "المنافقون", "التغابن", "الطلاق", "التحريم", "الملك", "القلم", "الحاقة", "المعارج",
+      "نوح", "الجن", "المزمل", "المدثر", "القيامة", "الإنسان", "المرسلات", "النبأ", "النازعات", "عبس",
+      "التكوير", "الانفطار", "المطففين", "الانشقاق", "البروج", "الطارق", "الأعلى", "الغاشية", "الفجر", "البلد",
+      "الشمس", "الليل", "الضحى", "الشرح", "التين", "العلق", "القدر", "البينة", "الزلزلة", "العاديات",
+      "القارعة", "التكاثر", "العصر", "الهمزة", "الفيل", "قريش", "الماعون", "الكوثر", "الكافرون", "النصر",
+      "المسد", "الإخلاص", "الفلق", "الناس"
+    ] :
+    [
+      "Al-Fatihah", "Al-Baqarah", "Al-Imran", "An-Nisa", "Al-Ma'idah", "Al-An'am", "Al-A'raf", "Al-Anfal", "At-Tawbah", "Yunus",
+      "Hud", "Yusuf", "Ar-Ra'd", "Ibrahim", "Al-Hijr", "An-Nahl", "Al-Isra", "Al-Kahf", "Maryam", "Ta-Ha",
+      "Al-Anbiya", "Al-Hajj", "Al-Mu'minun", "An-Nur", "Al-Furqan", "Ash-Shu'ara", "An-Naml", "Al-Qasas", "Al-Ankabut", "Ar-Rum",
+      "Luqman", "As-Sajdah", "Al-Ahzab", "Saba", "Fatir", "Ya-Sin", "As-Saffat", "Sad", "Az-Zumar", "Ghafir",
+      "Fussilat", "Ash-Shura", "Az-Zukhruf", "Ad-Dukhan", "Al-Jathiyah", "Al-Ahqaf", "Muhammad", "Al-Fath", "Al-Hujurat", "Qaf",
+      "Adh-Dhariyat", "At-Tur", "An-Najm", "Al-Qamar", "Ar-Rahman", "Al-Waqi'ah", "Al-Hadid", "Al-Mujadilah", "Al-Hashr", "Al-Mumtahinah",
+      "As-Saff", "Al-Jumu'ah", "Al-Munafiqun", "At-Taghabun", "At-Talaq", "At-Tahrim", "Al-Mulk", "Al-Qalam", "Al-Haqqah", "Al-Ma'arij",
+      "Nuh", "Al-Jinn", "Al-Muzzammil", "Al-Muddathir", "Al-Qiyamah", "Al-Insan", "Al-Mursalat", "An-Naba", "An-Nazi'at", "Abasa",
+      "At-Takwir", "Al-Infitar", "Al-Mutaffifin", "Al-Inshiqaq", "Al-Buruj", "At-Tariq", "Al-A'la", "Al-Ghashiyah", "Al-Fajr", "Al-Balad",
+      "Ash-Shams", "Al-Layl", "Ad-Duha", "Ash-Sharh", "At-Tin", "Al-Alaq", "Al-Qadr", "Al-Bayyinah", "Az-Zalzalah", "Al-Adiyat",
+      "Al-Qari'ah", "At-Takathur", "Al-Asr", "Al-Humazah", "Al-Fil", "Quraysh", "Al-Ma'un", "Al-Kawthar", "Al-Kafirun", "An-Nasr",
+      "Al-Masad", "Al-Ikhlas", "Al-Falaq", "An-Nas"
+    ];
+
+  // Translations for UI text
+  const translations = {
+    siteTitle: language === "ar" ? "الأصوات القرآنية" : "Quranic Recitations",
+    searchPlaceholder: language === "ar" ? "ابحث عن قارئ..." : "Search for a reciter...",
+    loading: language === "ar" ? "جاري التحميل..." : "Loading...",
+    exploreReciters: language === "ar" ? "استكشف القراء" : "Explore Reciters",
+    viewRecitersList: language === "ar" ? "عرض قائمة القراء" : "View Reciters List",
+    classicVersion: language === "ar" ? "النسخة الكلاسيكية" : "Classic Version",
+    noResults: language === "ar" ? "لا توجد نتائج مطابقة لبحثك. يرجى تجربة كلمات أخرى." : "No matching results found. Try different search terms.",
+    footer: language === "ar" ? "الأصوات القرآنية - استمع إلى تلاوات القرآن الكريم من مختلف القراء" : "Quranic Recitations - Listen to Quran recitations from various reciters",
+    listen: language === "ar" ? "استماع" : "Listen",
+    download: language === "ar" ? "تحميل" : "Download",
+    selectSurah: language === "ar" ? "اختر سورة" : "Select a Surah",
+    forListening: language === "ar" ? "للاستماع" : "to listen",
+    forDownload: language === "ar" ? "للتحميل" : "to download",
+    from: language === "ar" ? "من" : "from",
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-green-background">
@@ -173,7 +276,7 @@ const ReciterExplorer = () => {
         <div className="container">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <h1 className="text-3xl font-bold mb-4 md:mb-0">
-              {language === "ar" ? "الأصوات القرآنية" : "Quranic Recitations"}
+              {translations.siteTitle}
             </h1>
             
             <div className="flex items-center gap-4 w-full md:w-auto">
@@ -181,7 +284,7 @@ const ReciterExplorer = () => {
                 <div className="flex">
                   <Input
                     type="text"
-                    placeholder={language === "ar" ? "ابحث عن قارئ..." : "Search for a reciter..."}
+                    placeholder={translations.searchPlaceholder}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="rounded-r-none border-green-light"
@@ -222,7 +325,7 @@ const ReciterExplorer = () => {
           <div className="flex items-center gap-2">
             <BookOpenText className="h-6 w-6 text-green-primary" />
             <h2 className="text-2xl font-bold text-green-darker">
-              {language === "ar" ? "استكشف القراء" : "Explore Reciters"}
+              {translations.exploreReciters}
             </h2>
           </div>
           
@@ -230,12 +333,12 @@ const ReciterExplorer = () => {
             <Button asChild className="bg-green-primary hover:bg-green-dark text-white">
               <Link to="/reciters" className="flex items-center gap-2">
                 <BookOpenText className="h-5 w-5" />
-                {language === "ar" ? "عرض قائمة القراء" : "View Reciters List"}
+                {translations.viewRecitersList}
               </Link>
             </Button>
             <Button variant="outline" asChild className="border-green-primary text-green-primary hover:bg-green-light/30">
               <Link to="/classic">
-                {language === "ar" ? "النسخة الكلاسيكية" : "Classic Version"}
+                {translations.classicVersion}
               </Link>
             </Button>
           </div>
@@ -247,7 +350,7 @@ const ReciterExplorer = () => {
             <div className="text-center">
               <Loader2 className="h-12 w-12 animate-spin mx-auto text-green-primary" />
               <p className="mt-4 text-green-primary">
-                {language === "ar" ? "جاري التحميل..." : "Loading..."}
+                {translations.loading}
               </p>
             </div>
           </div>
@@ -291,7 +394,7 @@ const ReciterExplorer = () => {
                           onClick={() => openSurahSelector(serverUrl, reciter.name, "listen")}
                         >
                           <Volume2 className="mr-1 h-4 w-4" />
-                          {language === "ar" ? "استماع" : "Listen"}
+                          {translations.listen}
                         </Button>
                         <Button 
                           variant="outline"
@@ -299,7 +402,7 @@ const ReciterExplorer = () => {
                           onClick={() => openSurahSelector(serverUrl, reciter.name, "download")}
                         >
                           <Download className="mr-1 h-4 w-4" />
-                          {language === "ar" ? "تحميل" : "Download"}
+                          {translations.download}
                         </Button>
                       </div>
                     </div>
@@ -309,9 +412,7 @@ const ReciterExplorer = () => {
             ) : (
               <div className="text-center py-12">
                 <p className="text-gray-600 text-lg">
-                  {language === "ar" 
-                    ? "لا توجد نتائج مطابقة لبحثك. يرجى تجربة كلمات أخرى." 
-                    : "No matching results found. Try different search terms."}
+                  {translations.noResults}
                 </p>
               </div>
             )}
@@ -323,9 +424,7 @@ const ReciterExplorer = () => {
       <footer className="bg-white py-4 border-t border-green-light">
         <div className="container text-center">
           <p className="text-gray-600 text-sm">
-            {language === "ar" 
-              ? "الأصوات القرآنية - استمع إلى تلاوات القرآن الكريم من مختلف القراء" 
-              : "Quranic Recitations - Listen to Quran recitations from various reciters"}
+            {translations.footer}
           </p>
         </div>
       </footer>
@@ -337,7 +436,21 @@ const ReciterExplorer = () => {
             showPlayer ? "translate-y-0" : "translate-y-full"
           }`}
         >
-          <audio ref={audioRef} controls className="flex-1" onEnded={() => setShowPlayer(false)} />
+          <audio 
+            ref={audioRef} 
+            controls 
+            className="flex-1" 
+            onEnded={() => setShowPlayer(false)}
+            onError={(e) => {
+              console.error("Audio error:", e);
+              toast({
+                title: language === "ar" ? "خطأ في الملف الصوتي" : "Audio File Error",
+                description: language === "ar" ? "تعذر تشغيل الملف الصوتي" : "Could not play the audio file",
+                variant: "destructive",
+              });
+              setShowPlayer(false);
+            }}
+          />
           
           <div className="flex-1 truncate">
             <p className="font-medium text-green-darker truncate">
@@ -357,9 +470,7 @@ const ReciterExplorer = () => {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-xl font-bold text-green-darker">
-                {language === "ar" 
-                  ? `اختر سورة ${selectedReciter?.action === "listen" ? "للاستماع" : "للتحميل"} من ${selectedReciter?.name}`
-                  : `Select a Surah to ${selectedReciter?.action === "listen" ? "listen" : "download"} from ${selectedReciter?.name}`}
+                {`${translations.selectSurah} ${selectedReciter?.action === "listen" ? translations.forListening : translations.forDownload} ${translations.from} ${selectedReciter?.name}`}
               </h3>
               <Button variant="ghost" size="icon" onClick={() => setShowModal(false)}>
                 <X className="h-5 w-5" />
@@ -372,6 +483,16 @@ const ReciterExplorer = () => {
                   key={num}
                   className="p-3 bg-gray-50 hover:bg-green-primary hover:text-white rounded-md text-center transition-colors flex flex-col items-center"
                   onClick={() => handleSurahSelect(num)}
+                  onMouseEnter={() => {
+                    if (selectedReciter?.action === "listen") {
+                      // Preload on hover
+                      const paddedNumber = num.toString().padStart(3, '0');
+                      const audioUrl = `${selectedReciter.server}${paddedNumber}.mp3`;
+                      const audio = new Audio();
+                      audio.preload = "metadata";
+                      audio.src = audioUrl;
+                    }
+                  }}
                 >
                   <span className="font-bold text-lg">{num.toString().padStart(3, '0')}</span>
                   <span className="text-sm">{surahs[num - 1]}</span>

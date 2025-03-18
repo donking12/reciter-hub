@@ -9,14 +9,21 @@ interface AudioPlayerProps {
   audioUrl: string;
   surahName?: string;
   reciterName?: string;
+  language?: "ar" | "en";
 }
 
-const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, surahName, reciterName }) => {
+const AudioPlayer: React.FC<AudioPlayerProps> = ({ 
+  audioUrl, 
+  surahName, 
+  reciterName,
+  language = "ar" 
+}) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const animationRef = useRef<number | null>(null);
 
@@ -27,6 +34,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, surahName, reciterN
     
     const setAudioData = () => {
       setDuration(audio.duration);
+      setIsLoading(false);
     };
     
     const setAudioTime = () => {
@@ -40,17 +48,27 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, surahName, reciterN
         cancelAnimationFrame(animationRef.current);
       }
     };
+
+    const handleCanPlay = () => {
+      setIsLoading(false);
+    };
     
     // Set up event listeners
     audio.addEventListener('loadeddata', setAudioData);
     audio.addEventListener('timeupdate', setAudioTime);
     audio.addEventListener('ended', handleAudioEnd);
+    audio.addEventListener('canplay', handleCanPlay);
+    
+    // Start loading the audio
+    setIsLoading(true);
+    audio.load();
     
     return () => {
       // Clean up event listeners
       audio.removeEventListener('loadeddata', setAudioData);
       audio.removeEventListener('timeupdate', setAudioTime);
       audio.removeEventListener('ended', handleAudioEnd);
+      audio.removeEventListener('canplay', handleCanPlay);
       
       // Cancel animation frame when component unmounts
       if (animationRef.current) {
@@ -64,9 +82,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, surahName, reciterN
     if (!audio) return;
     
     if (!isPlaying) {
-      audio.play();
-      setIsPlaying(true);
-      animationRef.current = requestAnimationFrame(updateProgress);
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsPlaying(true);
+            animationRef.current = requestAnimationFrame(updateProgress);
+          })
+          .catch(error => {
+            console.error("Error playing audio:", error);
+          });
+      }
     } else {
       audio.pause();
       setIsPlaying(false);
@@ -129,6 +155,14 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, surahName, reciterN
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  // Localized strings
+  const playText = language === "ar" ? "تشغيل" : "Play";
+  const pauseText = language === "ar" ? "إيقاف" : "Pause";
+  const loadingText = language === "ar" ? "جاري التحميل..." : "Loading...";
+  const surahDisplayName = language === "en" && surahName?.startsWith("سورة")
+    ? surahName.replace("سورة", "Surah")
+    : surahName;
+
   return (
     <div className="bg-white/80 backdrop-blur-sm p-4 rounded-lg shadow-md border border-quran-gold/10">
       <audio ref={audioRef} src={audioUrl} preload="metadata" />
@@ -137,7 +171,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, surahName, reciterN
         {(reciterName || surahName) && (
           <div className="text-center mb-2">
             {reciterName && <p className="text-quran-dark font-medium">{reciterName}</p>}
-            {surahName && <p className="text-quran-secondary text-sm">{surahName}</p>}
+            {surahDisplayName && <p className="text-quran-secondary text-sm">{surahDisplayName}</p>}
           </div>
         )}
         
@@ -145,14 +179,19 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, surahName, reciterN
           <Button
             onClick={togglePlayPause}
             size="sm"
+            disabled={isLoading}
+            title={isPlaying ? pauseText : playText}
             className={cn(
               "w-10 h-10 rounded-full",
               isPlaying 
                 ? "bg-quran-accent hover:bg-quran-accent/90"
-                : "bg-quran-primary hover:bg-quran-primary/90"
+                : "bg-quran-primary hover:bg-quran-primary/90",
+              isLoading && "opacity-50 cursor-not-allowed"
             )}
           >
-            {isPlaying ? (
+            {isLoading ? (
+              <span className="h-4 w-4 animate-spin block rounded-full border-2 border-white border-t-transparent" />
+            ) : isPlaying ? (
               <Pause className="h-4 w-4" />
             ) : (
               <Play className="h-4 w-4" />
@@ -165,12 +204,13 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, surahName, reciterN
               max={duration || 100}
               step={0.01}
               onValueChange={onProgressChange}
-              className="cursor-pointer"
+              disabled={isLoading}
+              className={cn("cursor-pointer", isLoading && "opacity-50")}
             />
             
             <div className="flex justify-between text-xs text-quran-dark/80">
               <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
+              <span>{isLoading ? loadingText : formatTime(duration)}</span>
             </div>
           </div>
           
@@ -179,6 +219,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, surahName, reciterN
               onClick={toggleMute}
               variant="ghost"
               size="sm"
+              disabled={isLoading}
               className="text-quran-dark hover:text-quran-primary hover:bg-transparent"
             >
               {isMuted ? (
@@ -193,7 +234,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, surahName, reciterN
               max={1}
               step={0.01}
               onValueChange={onVolumeChange}
-              className="w-20 cursor-pointer"
+              disabled={isLoading}
+              className={cn("w-20 cursor-pointer", isLoading && "opacity-50")}
             />
           </div>
         </div>
