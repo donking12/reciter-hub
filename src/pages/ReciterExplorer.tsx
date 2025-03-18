@@ -15,7 +15,7 @@ const ReciterExplorer = () => {
   const [filteredReciters, setFilteredReciters] = useState<Reciter[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [language, setLanguage] = useState<"ar" | "en">("en");
+  const [language, setLanguage] = useState<"ar" | "en">("ar");
   const [showPlayer, setShowPlayer] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<{
     url: string;
@@ -173,7 +173,7 @@ const ReciterExplorer = () => {
         <div className="container">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <h1 className="text-3xl font-bold mb-4 md:mb-0">
-              {language === "ar" ? "قراء القرآن الكريم" : "Quran Reciters"}
+              {language === "ar" ? "الأصوات القرآنية" : "Quranic Recitations"}
             </h1>
             
             <div className="flex items-center gap-4 w-full md:w-auto">
@@ -226,11 +226,19 @@ const ReciterExplorer = () => {
             </h2>
           </div>
           
-          <Button variant="outline" asChild className="border-green-primary text-green-primary hover:bg-green-light/30">
-            <Link to="/">
-              {language === "ar" ? "العودة إلى الصفحة الرئيسية" : "Back to Home"}
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild className="bg-green-primary hover:bg-green-dark text-white">
+              <Link to="/reciters" className="flex items-center gap-2">
+                <BookOpenText className="h-5 w-5" />
+                {language === "ar" ? "عرض قائمة القراء" : "View Reciters List"}
+              </Link>
+            </Button>
+            <Button variant="outline" asChild className="border-green-primary text-green-primary hover:bg-green-light/30">
+              <Link to="/classic">
+                {language === "ar" ? "النسخة الكلاسيكية" : "Classic Version"}
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {/* Loading State */}
@@ -316,16 +324,8 @@ const ReciterExplorer = () => {
         <div className="container text-center">
           <p className="text-gray-600 text-sm">
             {language === "ar" 
-              ? "تم إنشاؤه باستخدام API من" 
-              : "Created using API from"} 
-            <a 
-              href="https://mp3quran.net" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-green-primary hover:underline ml-1"
-            >
-              mp3quran.net
-            </a>
+              ? "الأصوات القرآنية - استمع إلى تلاوات القرآن الكريم من مختلف القراء" 
+              : "Quranic Recitations - Listen to Quran recitations from various reciters"}
           </p>
         </div>
       </footer>

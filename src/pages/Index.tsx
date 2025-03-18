@@ -74,7 +74,7 @@ const Index = () => {
           <section className="space-y-4">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
               <h2 className="text-2xl font-bold text-quran-dark">
-                استكشف قراء القرآن الكريم
+                استكشف قراء القرآن الكريم (النسخة الكلاسيكية)
               </h2>
               <div className="flex gap-2">
                 <Button asChild className="bg-quran-accent hover:bg-quran-accent/90 text-white">
@@ -84,9 +84,9 @@ const Index = () => {
                   </Link>
                 </Button>
                 <Button asChild variant="outline" className="border-green-primary text-green-primary hover:bg-green-light/30">
-                  <Link to="/explorer" className="flex items-center gap-2">
+                  <Link to="/" className="flex items-center gap-2">
                     <PanelRightOpen className="h-5 w-5" />
-                    المكتشف الجديد
+                    العودة إلى الصفحة الرئيسية
                   </Link>
                 </Button>
               </div>
